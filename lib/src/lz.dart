@@ -281,11 +281,11 @@ class BinTree extends InWindow {
 
   void init() {
     super.init();
+    // print(_hashSizeSum);
 
     for (var i = 0; i < _hashSizeSum; ++i) {
       // _hash![i] = _kEmptyHashValue;
       _hash!.replaceOrAdd(_kEmptyHashValue, i);
-      print("infi");
     }
     // print(_hashSizeSum);
     // print(_hash!.length);
@@ -482,12 +482,12 @@ class BinTree extends InWindow {
           (_bufferBase![cur + len] & 0xff)) {
         _son!.replaceOrAdd(curMatch, ptr1);
         ptr1 = cyclicPos + 1;
-        curMatch = _son![ptr1];
+        curMatch = _son!.elementAtOrOr(ptr1, 0); // TODO check it
         len1 = len;
       } else {
         _son!.replaceOrAdd(curMatch, ptr0);
         ptr0 = cyclicPos;
-        curMatch = _son![ptr0];
+        curMatch = _son!.elementAtOrOr(ptr0, 0);  // TODO check it
         len0 = len;
       }
     }
