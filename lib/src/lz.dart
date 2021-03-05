@@ -29,15 +29,15 @@ References:
 part of lzma;
 
 class OutWindow {
-  List<int> _buffer;
-  int _pos;
+  List<int>? _buffer;
+  late int _pos;
   int _windowSize = 0;
-  int _streamPos;
-  OutStream _stream;
+  late int _streamPos;
+  OutStream? _stream;
 
   void create(int windowSize) {
     if ((_buffer == null) || (_windowSize != windowSize)) {
-      _buffer = new List<int>(windowSize);
+      _buffer = [];
     }
 
     _windowSize = windowSize;
@@ -65,7 +65,7 @@ class OutWindow {
   void flush() {
     var size = _pos - _streamPos;
     if (size != 0) {
-      _stream.writeBlock(_buffer, _streamPos, size);
+      _stream!.writeBlock(_buffer!, _streamPos, size);
 
       if (_pos >= _windowSize) {
         _pos = 0;
@@ -80,13 +80,12 @@ class OutWindow {
       pos += _windowSize;
     }
 
-    for (var i = 0; i < len; ++ i) {
+    for (var i = 0; i < len; ++i) {
       if (pos >= _windowSize) {
         pos = 0;
       }
 
-      _buffer[_pos ++] = _buffer[pos ++];
-
+      _buffer!.insert(_pos++, _buffer![pos++]);
       if (_pos >= _windowSize) {
         flush();
       }
@@ -94,44 +93,44 @@ class OutWindow {
   }
 
   void putByte(int b) {
-    _buffer[_pos ++] = b;
+    _buffer!.insert(_pos++, b);
 
     if (_pos >= _windowSize) {
       flush();
     }
   }
 
-  int getByte(int distance) {
+  int? /*!*/ getByte(int distance) {
     var pos = _pos - distance - 1;
     if (pos < 0) {
       pos += _windowSize;
     }
-    return _buffer[pos];
+    return _buffer![pos];
   }
 }
 
 class InWindow {
-  List<int> _bufferBase;
-  InStream _stream;
-  int _posLimit;
-  bool _streamEndWasReached;
-  int _pointerToLastSafePosition;
-  int _bufferOffset;
-  int _blockSize;
-  int _pos;
-  int _keepSizeBefore;
-  int _keepSizeAfter;
-  int _streamPos;
+  List<int>? _bufferBase;
+  InStream? _stream;
+  late int _posLimit;
+  late bool _streamEndWasReached;
+  late int _pointerToLastSafePosition;
+  late int _bufferOffset;
+  late int _blockSize;
+  late int _pos;
+  late int _keepSizeBefore;
+  late int _keepSizeAfter;
+  late int _streamPos;
 
   void moveBlock() {
     var offset = _bufferOffset + _pos - _keepSizeBefore;
     if (offset > 0) {
-      -- offset;
+      --offset;
     }
 
     var numBytes = _bufferOffset + _streamPos - offset;
-    for (var i = 0; i < numBytes; ++ i) {
-      _bufferBase[i] = _bufferBase[offset + i];
+    for (var i = 0; i < numBytes; ++i) {
+      _bufferBase![i] = _bufferBase![offset + i];
     }
     _bufferOffset -= offset;
   }
@@ -147,7 +146,8 @@ class InWindow {
         return;
       }
 
-      var numReadBytes = _stream.readBlock(_bufferBase, _bufferOffset + _streamPos, size);
+      var numReadBytes =
+          _stream!.readBlock(_bufferBase!, _bufferOffset + _streamPos, size);
 
       if (numReadBytes == -1) {
         _posLimit = _streamPos;
@@ -178,12 +178,12 @@ class InWindow {
       free();
 
       _blockSize = blockSize;
-      _bufferBase = new List<int>(_blockSize);
+      _bufferBase = [];
     }
     _pointerToLastSafePosition = _blockSize - keepSizeAfter;
   }
 
-  void setStream(InStream stream) {
+  void setStream(InStream? stream) {
     _stream = stream;
   }
 
@@ -201,7 +201,7 @@ class InWindow {
   }
 
   void movePos() {
-    ++ _pos;
+    ++_pos;
     if (_pos > _posLimit) {
       if ((_bufferOffset + _pos) > _pointerToLastSafePosition) {
         moveBlock();
@@ -210,7 +210,7 @@ class InWindow {
     }
   }
 
-  int getIndexByte(int index) => _bufferBase[_bufferOffset + _pos + index];
+  int? getIndexByte(int index) => _bufferBase![_bufferOffset + _pos + index];
 
   int getMatchLen(int index, int distance, int limit) {
     if (_streamEndWasReached) {
@@ -218,12 +218,15 @@ class InWindow {
         limit = _streamPos - (_pos + index);
       }
     }
-    ++ distance;
+    ++distance;
 
     var pby = _bufferOffset + _pos + index;
 
     var i = 0;
-    for (; (i < limit) && (_bufferBase[pby + i] == _bufferBase[pby + i - distance]); ++ i) {}
+    for (;
+        (i < limit) &&
+            (_bufferBase![pby + i] == _bufferBase![pby + i - distance]);
+        ++i) {}
     return i;
   }
 
@@ -238,15 +241,15 @@ class InWindow {
 }
 
 class BinTree extends InWindow {
-  int _cyclicBufferPos;
+  late int _cyclicBufferPos;
   int _cyclicBufferSize = 0;
-  int _matchMaxLen;
+  int? _matchMaxLen;
 
-  List<int> _son;
-  List<int> _hash;
+  List<int>? _son;
+  List<int>? _hash;
 
   int _cutValue = 0xff;
-  int _hashMask;
+  late int _hashMask;
   int _hashSizeSum = 0;
 
   bool _hashArray = true;
@@ -279,9 +282,15 @@ class BinTree extends InWindow {
   void init() {
     super.init();
 
-    for (var i = 0; i < _hashSizeSum; ++ i) {
-      _hash[i] = _kEmptyHashValue;
+    for (var i = 0; i < _hashSizeSum; ++i) {
+      // _hash![i] = _kEmptyHashValue;
+      _hash!.replaceOrAdd(_kEmptyHashValue, i);
+      print("infi");
     }
+    // print(_hashSizeSum);
+    // print(_hash!.length);
+    // _hash!.fillRange(0, _hashSizeSum - 1, _kEmptyHashValue);
+
     _cyclicBufferPos = 0;
 
     reduceOffsets(-1);
@@ -299,24 +308,29 @@ class BinTree extends InWindow {
     }
   }
 
-  bool create2(int historySize, int keepAddBufferBefore,
-      int matchMaxLen, int keepAddBufferAfter) {
+  bool create2(int historySize, int keepAddBufferBefore, int matchMaxLen,
+      int keepAddBufferAfter) {
     if (historySize > (_kMaxValForNormalize - 256)) {
       return false;
     }
     _cutValue = 16 + (matchMaxLen >> 1);
 
-    var windowReservSize = ((historySize + keepAddBufferBefore +
-        matchMaxLen + keepAddBufferAfter) ~/ 2) + 256;
+    var windowReservSize = ((historySize +
+                keepAddBufferBefore +
+                matchMaxLen +
+                keepAddBufferAfter) ~/
+            2) +
+        256;
 
-    super.create(historySize + keepAddBufferBefore, matchMaxLen + keepAddBufferAfter, windowReservSize);
+    super.create(historySize + keepAddBufferBefore,
+        matchMaxLen + keepAddBufferAfter, windowReservSize);
 
     _matchMaxLen = matchMaxLen;
 
     var cyclicBufferSize = historySize + 1;
     if (_cyclicBufferSize != cyclicBufferSize) {
       _cyclicBufferSize = cyclicBufferSize;
-      _son = new List<int>(_cyclicBufferSize * 2);
+      _son = []; //?? List<int?>.filled(_cyclicBufferSize * 2, null);
     }
 
     var hs = _kBT2HashSize;
@@ -338,16 +352,16 @@ class BinTree extends InWindow {
 
     if (hs != _hashSizeSum) {
       _hashSizeSum = hs;
-      _hash = new List<int>(_hashSizeSum);
+      _hash = <int>[]; // List<int?>.filled(_hashSizeSum, null);
     }
 
     return true;
   }
 
-  int getMatches(List<int> distances) {
-    int lenLimit;
+  int getMatches(List<int?> distances) {
+    int? lenLimit;
 
-    if ((_pos + _matchMaxLen) <= _streamPos) {
+    if ((_pos + _matchMaxLen!) <= _streamPos) {
       lenLimit = _matchMaxLen;
     } else {
       lenLimit = _streamPos - _pos;
@@ -364,31 +378,34 @@ class BinTree extends InWindow {
     int hashValue, hash2Value = 0, hash3Value = 0;
 
     if (_hashArray) {
-      var temp =  (_crcTable[_bufferBase[cur] & 0xff]) ^ (_bufferBase[cur + 1] & 0xff);
+      var temp =
+          _crcTable[_bufferBase![cur] & 0xff]! ^ (_bufferBase![cur + 1] & 0xff);
       hash2Value = temp & (_kHash2Size - 1);
-      temp ^= (_bufferBase[cur + 2] & 0xff) << 8;
+      temp ^= (_bufferBase![cur + 2] & 0xff) << 8;
       hash3Value = temp & (_kHash3Size - 1);
-      hashValue = (temp ^ (_crcTable[_bufferBase[cur + 3] & 0xff] << 5)) & _hashMask;
+      hashValue =
+          (temp ^ (_crcTable[_bufferBase![cur + 3] & 0xff]! << 5)) & _hashMask;
     } else {
-      hashValue = (_bufferBase[cur] & 0xff) ^ ((_bufferBase[cur + 1] & 0xff) << 8);
+      hashValue =
+          (_bufferBase![cur] & 0xff) ^ ((_bufferBase![cur + 1] & 0xff) << 8);
     }
 
-    var curMatch = _hash[_kFixHashSize + hashValue];
+    var curMatch = _hash![_kFixHashSize + hashValue];
     if (_hashArray) {
-      var curMatch2 = _hash[hash2Value];
-      var curMatch3 = _hash[_kHash3Offset + hash3Value];
+      var curMatch2 = _hash![hash2Value];
+      var curMatch3 = _hash![_kHash3Offset + hash3Value];
 
-      _hash[hash2Value] = _pos;
-      _hash[_kHash3Offset + hash3Value] = _pos;
+      _hash![hash2Value] = _pos;
+      _hash![_kHash3Offset + hash3Value] = _pos;
 
       if (curMatch2 > matchMinPos) {
-        if (_bufferBase[_bufferOffset + curMatch2] == _bufferBase[cur]) {
+        if (_bufferBase![_bufferOffset + curMatch2] == _bufferBase![cur]) {
           distances[offset++] = maxLen = 2;
           distances[offset++] = _pos - curMatch2 - 1;
         }
       }
       if (curMatch3 > matchMinPos) {
-        if (_bufferBase[_bufferOffset + curMatch3] == _bufferBase[cur]) {
+        if (_bufferBase![_bufferOffset + curMatch3] == _bufferBase![cur]) {
           if (curMatch3 == curMatch2) {
             offset -= 2;
           }
@@ -403,7 +420,7 @@ class BinTree extends InWindow {
       }
     }
 
-    _hash[_kFixHashSize + hashValue.toInt()] = _pos;
+    _hash![_kFixHashSize + hashValue.toInt()] = _pos;
 
     var ptr0 = (_cyclicBufferPos << 1) + 1;
     var ptr1 = _cyclicBufferPos << 1;
@@ -413,10 +430,10 @@ class BinTree extends InWindow {
 
     if (_kNumHashDirectBytes != 0) {
       if (curMatch > matchMinPos) {
-        if (_bufferBase[_bufferOffset + curMatch + _kNumHashDirectBytes] !=
-            _bufferBase[cur + _kNumHashDirectBytes]) {
-          distances[offset ++] = maxLen = _kNumHashDirectBytes;
-          distances[offset ++] = _pos - curMatch - 1;
+        if (_bufferBase![_bufferOffset + curMatch + _kNumHashDirectBytes] !=
+            _bufferBase![cur + _kNumHashDirectBytes]) {
+          distances[offset++] = maxLen = _kNumHashDirectBytes;
+          distances[offset++] = _pos - curMatch - 1;
         }
       }
     }
@@ -424,45 +441,53 @@ class BinTree extends InWindow {
     var count = _cutValue;
 
     while (true) {
-      if ((curMatch <= matchMinPos) || (count -- == 0)) {
-        _son[ptr0] = _son[ptr1] = _kEmptyHashValue;
+      if ((curMatch <= matchMinPos) || (count-- == 0)) {
+        _son!.replaceOrAdd(_kEmptyHashValue, ptr1);
+        _son!.replaceOrAdd(_kEmptyHashValue, ptr0);
+
+        // _son![ptr0] = _son![ptr1] = _kEmptyHashValue;
         break;
       }
 
       int delta = _pos - curMatch;
-      var cyclicPos = ((delta <= _cyclicBufferPos) ?
-        (_cyclicBufferPos - delta) :
-        (_cyclicBufferPos - delta + _cyclicBufferSize)) << 1;
+      var cyclicPos = ((delta <= _cyclicBufferPos)
+              ? (_cyclicBufferPos - delta)
+              : (_cyclicBufferPos - delta + _cyclicBufferSize)) <<
+          1;
 
       var pby1 = _bufferOffset + curMatch;
       var len = math.min(len0, len1);
 
-      if (_bufferBase[pby1 + len] == _bufferBase[cur + len]) {
-        while(++ len != lenLimit) {
-          if (_bufferBase[pby1 + len] != _bufferBase[cur + len]) {
+      if (_bufferBase![pby1 + len] == _bufferBase![cur + len]) {
+        while (++len != lenLimit) {
+          if (_bufferBase![pby1 + len] != _bufferBase![cur + len]) {
             break;
           }
         }
         if (maxLen < len) {
-          distances[offset ++] = maxLen = len;
-          distances[offset ++] = delta - 1;
+          distances[offset++] = maxLen = len;
+          distances[offset++] = delta - 1;
           if (len == lenLimit) {
-            _son[ptr1] = _son[cyclicPos];
-            _son[ptr0] = _son[cyclicPos + 1];
+            _son!.replaceOrAdd(_son![cyclicPos], ptr1);
+            _son!.replaceOrAdd(_son![cyclicPos + 1], ptr0);
+
+            // _son![ptr1] = ;
+            // _son![] =;
             break;
           }
         }
       }
 
-      if ((_bufferBase[pby1 + len] & 0xff) < (_bufferBase[cur + len] & 0xff)) {
-        _son[ptr1] = curMatch;
+      if ((_bufferBase![pby1 + len] & 0xff) <
+          (_bufferBase![cur + len] & 0xff)) {
+        _son!.replaceOrAdd(curMatch, ptr1);
         ptr1 = cyclicPos + 1;
-        curMatch = _son[ptr1];
+        curMatch = _son![ptr1];
         len1 = len;
       } else {
-        _son[ptr0] = curMatch;
+        _son!.replaceOrAdd(curMatch, ptr0);
         ptr0 = cyclicPos;
-        curMatch = _son[ptr0];
+        curMatch = _son![ptr0];
         len0 = len;
       }
     }
@@ -474,8 +499,8 @@ class BinTree extends InWindow {
 
   void skip(int num) {
     do {
-      int lenLimit;
-      if ((_pos + _matchMaxLen) <= _streamPos) {
+      int? lenLimit;
+      if ((_pos + _matchMaxLen!) <= _streamPos) {
         lenLimit = _matchMaxLen;
       } else {
         lenLimit = _streamPos - _pos;
@@ -485,25 +510,31 @@ class BinTree extends InWindow {
         }
       }
 
-      var matchMinPos = (_pos > _cyclicBufferSize) ? (_pos - _cyclicBufferSize) : 0;
+      var matchMinPos =
+          (_pos > _cyclicBufferSize) ? (_pos - _cyclicBufferSize) : 0;
       var cur = _bufferOffset + _pos;
 
       int hashValue;
 
       if (_hashArray) {
-        var temp = (new Int32(_crcTable[_bufferBase[cur] & 0xff]) ^ (_bufferBase[cur + 1] & 0xff)).toInt();
+        var temp = (Int32(_crcTable[_bufferBase![cur] & 0xff]!) ^
+                (_bufferBase![cur + 1] & 0xff))
+            .toInt();
         var hash2Value = temp & (_kHash2Size - 1);
-        _hash[hash2Value] = _pos;
-        temp ^= (_bufferBase[cur + 2] & 0xff) << 8;
+        _hash![hash2Value] = _pos;
+        temp ^= (_bufferBase![cur + 2] & 0xff) << 8;
         var hash3Value = temp & (_kHash3Size - 1);
-        _hash[_kHash3Offset + hash3Value] = _pos;
-        hashValue = (temp ^ (_crcTable[_bufferBase[cur + 3] & 0xff] << 5)) & _hashMask;
+        _hash![_kHash3Offset + hash3Value] = _pos;
+        hashValue = (temp ^ (_crcTable[_bufferBase![cur + 3] & 0xff]! << 5)) &
+            _hashMask;
       } else {
-        hashValue = (new Int32(_bufferBase[cur] & 0xff) ^ ((_bufferBase[cur + 1] & 0xff) << 8)).toInt();
+        hashValue = (Int32(_bufferBase![cur] & 0xff) ^
+                ((_bufferBase![cur + 1] & 0xff) << 8))
+            .toInt();
       }
 
-      var curMatch = _hash[_kFixHashSize + hashValue];
-      _hash[_kFixHashSize + hashValue] = _pos;
+      var curMatch = _hash![_kFixHashSize + hashValue];
+      _hash![_kFixHashSize + hashValue] = _pos;
 
       var ptr0 = (_cyclicBufferPos << 1) + 1;
       var ptr1 = _cyclicBufferPos << 1;
@@ -512,50 +543,51 @@ class BinTree extends InWindow {
 
       var count = _cutValue;
       while (true) {
-        if ((curMatch <= matchMinPos) || (count -- == 0)) {
-          _son[ptr0] = _son[ptr1] = _kEmptyHashValue;
+        if ((curMatch <= matchMinPos) || (count-- == 0)) {
+          _son![ptr0] = _son![ptr1] = _kEmptyHashValue;
           break;
         }
 
         int delta = _pos - curMatch;
-        var cyclicPos = ((delta <= _cyclicBufferPos) ?
-          (_cyclicBufferPos - delta) :
-          (_cyclicBufferPos - delta + _cyclicBufferSize)) << 1;
+        var cyclicPos = ((delta <= _cyclicBufferPos)
+                ? (_cyclicBufferPos - delta)
+                : (_cyclicBufferPos - delta + _cyclicBufferSize)) <<
+            1;
 
         var pby1 = _bufferOffset + curMatch;
         var len = math.min(len0, len1);
-        if (_bufferBase[pby1 + len] == _bufferBase[cur + len]) {
-          while (++ len != lenLimit) {
-            if (_bufferBase[pby1 + len] != _bufferBase[cur + len]) {
+        if (_bufferBase![pby1 + len] == _bufferBase![cur + len]) {
+          while (++len != lenLimit) {
+            if (_bufferBase![pby1 + len] != _bufferBase![cur + len]) {
               break;
             }
           }
           if (len == lenLimit) {
-            _son[ptr1] = _son[cyclicPos];
-            _son[ptr0] = _son[cyclicPos + 1];
+            _son![ptr1] = _son![cyclicPos];
+            _son![ptr0] = _son![cyclicPos + 1];
             break;
           }
         }
-        if ((_bufferBase[pby1 + len] & 0xff) < (_bufferBase[cur + len] & 0xff)) {
-          _son[ptr1] = curMatch;
+        if ((_bufferBase![pby1 + len] & 0xff) <
+            (_bufferBase![cur + len] & 0xff)) {
+          _son![ptr1] = curMatch;
           ptr1 = cyclicPos + 1;
-          curMatch = _son[ptr1];
+          curMatch = _son![ptr1];
           len1 = len;
         } else {
-          _son[ptr0] = curMatch;
+          _son![ptr0] = curMatch;
           ptr0 = cyclicPos;
-          curMatch = _son[ptr0];
+          curMatch = _son![ptr0];
           len0 = len;
         }
       }
 
       movePos();
-
-    } while (-- num != 0);
+    } while (--num != 0);
   }
 
   void normalizeLinks(List<int> items, int numItems, int subValue) {
-    for (var i = 0; i < numItems; ++ i) {
+    for (var i = 0; i < numItems; ++i) {
       var value = items[i];
       if (value <= subValue) {
         value = _kEmptyHashValue;
@@ -568,8 +600,8 @@ class BinTree extends InWindow {
 
   void normalize() {
     var subValue = _pos - _cyclicBufferSize;
-    normalizeLinks(_son, _cyclicBufferSize * 2, subValue);
-    normalizeLinks(_hash, _hashSizeSum, subValue);
+    normalizeLinks(_son!, _cyclicBufferSize * 2, subValue);
+    normalizeLinks(_hash!, _hashSizeSum, subValue);
     reduceOffsets(subValue);
   }
 
@@ -577,14 +609,14 @@ class BinTree extends InWindow {
     _cutValue = cutValue;
   }
 
-  static final List<int> _crcTable = _buildCrcTable();
+  static final List<int?> _crcTable = _buildCrcTable();
 
-  static List<int> _buildCrcTable() {
-    var crcTable = new List<int>(256);
+  static List<int?> _buildCrcTable() {
+    var crcTable = List<int?>.filled(256, null);
 
-    for (var i = 0; i < 256; ++ i) {
+    for (var i = 0; i < 256; ++i) {
       var r = i;
-      for (var j = 0; j < 8; ++ j) {
+      for (var j = 0; j < 8; ++j) {
         if ((r & 1) != 0) {
           r = (r >> 1) ^ 0xedb88320;
         } else {

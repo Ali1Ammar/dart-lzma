@@ -58,7 +58,7 @@ class InStream implements _InStream<int> {
     }
     var len = math.min(size, length() - _offset);
     for (var i = 0; i < len; ++ i) {
-      buffer[offset ++] = _data[_offset ++];
+      buffer.replaceOrAdd(_data[_offset++], offset ++); 
     }
     return len;
   }
@@ -67,7 +67,7 @@ class InStream implements _InStream<int> {
 }
 
 class OutStream implements _OutStream<int> {
-  final List<int> data = new List<int>();
+  final List<int> data = [];
 
   void write(int value) {
     data.add(value);

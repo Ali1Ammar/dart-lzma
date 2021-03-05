@@ -31,6 +31,7 @@ library lzma;
 import 'dart:math' as math show min, max, pow;
 
 import 'package:fixnum/fixnum.dart';
+import 'package:lzma/src/extonlist.dart';
 
 part 'base.dart';
 part 'lz.dart';

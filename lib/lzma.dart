@@ -4,7 +4,7 @@ import 'src/lzma.dart' as lzma_impl;
 
 const LzmaCodec lzma = const LzmaCodec();
 
-class LzmaCodec extends Codec<List<int>, List<int>> {
+class LzmaCodec extends Codec<List<int?>, List<int?>> {
   const LzmaCodec();
 
   @override
@@ -19,8 +19,8 @@ class LzmaEncoder extends Converter<List<int>, List<int>> {
 
   @override
   List<int> convert(List<int> input) {
-    final inStream = new lzma_impl.InStream(input);
-    final outStream = new lzma_impl.OutStream();
+    final inStream = lzma_impl.InStream(input);
+    final outStream = lzma_impl.OutStream();
     lzma_impl.compress(inStream, outStream);
     return outStream.data;
   }
@@ -31,8 +31,8 @@ class LzmaDecoder extends Converter<List<int>, List<int>> {
 
   @override
   List<int> convert(List<int> encoded) {
-    final inStream = new lzma_impl.InStream(encoded);
-    final outStream = new lzma_impl.OutStream();
+    final inStream = lzma_impl.InStream(encoded);
+    final outStream = lzma_impl.OutStream();
     lzma_impl.decompress(inStream, outStream);
     return outStream.data;
   }

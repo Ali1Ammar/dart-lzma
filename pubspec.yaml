@@ -5,10 +5,10 @@ homepage: https://github.com/jcmellado/dart-lzma
 description: LZMA compression library.
 
 environment:
-  sdk: '>=2.0.0 <3.0.0'
+  sdk: '>=2.12.0 <3.0.0'
 
 dependencies:
-  fixnum: ">=0.9.0 <0.11.0"
+    fixnum: ^1.0.0
   
 dev_dependencies:
   test: ^1.3.0
