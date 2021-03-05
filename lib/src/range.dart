@@ -185,9 +185,9 @@ class RangeEncoder {
   static const int _kNumMoveReducingBits = 2;
   static const int _kNumBitPriceShiftBits = 6;
 
-  static void initBitModels(List<int?> probs) {
-    for (var i = 0; i < probs.length; ++i) {
-      probs[i] = _kBitModelTotal >> 1;
+  static void initBitModels(List<int> probs, int length) {
+    for (var i = 0; i < length; ++i) {
+      probs.add(_kBitModelTotal >> 1);
     }
   }
 

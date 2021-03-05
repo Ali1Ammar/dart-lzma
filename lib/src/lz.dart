@@ -330,7 +330,7 @@ class BinTree extends InWindow {
     var cyclicBufferSize = historySize + 1;
     if (_cyclicBufferSize != cyclicBufferSize) {
       _cyclicBufferSize = cyclicBufferSize;
-      _son = []; //?? List<int?>.filled(_cyclicBufferSize * 2, null);
+      _son = [];
     }
 
     var hs = _kBT2HashSize;
@@ -352,7 +352,7 @@ class BinTree extends InWindow {
 
     if (hs != _hashSizeSum) {
       _hashSizeSum = hs;
-      _hash = <int>[]; // List<int?>.filled(_hashSizeSum, null);
+      _hash = <int>[];
     }
 
     return true;
@@ -400,8 +400,8 @@ class BinTree extends InWindow {
 
       if (curMatch2 > matchMinPos) {
         if (_bufferBase![_bufferOffset + curMatch2] == _bufferBase![cur]) {
-          distances[offset++] = maxLen = 2;
-          distances[offset++] = _pos - curMatch2 - 1;
+          distances.replaceOrAdd(maxLen = 2, offset++);
+          distances.replaceOrAdd(_pos - curMatch2 - 1, offset++);
         }
       }
       if (curMatch3 > matchMinPos) {
@@ -409,8 +409,10 @@ class BinTree extends InWindow {
           if (curMatch3 == curMatch2) {
             offset -= 2;
           }
-          distances[offset++] = maxLen = 3;
-          distances[offset++] = _pos - curMatch3 - 1;
+          maxLen = 3;
+          distances.replaceOrAdd(maxLen, offset++);
+          distances.replaceOrAdd(_pos - curMatch3 - 1, offset++);
+
           curMatch2 = curMatch3;
         }
       }
@@ -465,8 +467,10 @@ class BinTree extends InWindow {
           }
         }
         if (maxLen < len) {
-          distances[offset++] = maxLen = len;
-          distances[offset++] = delta - 1;
+          maxLen = len;
+          distances.replaceOrAdd(maxLen, offset++);
+          distances.replaceOrAdd(delta - 1, offset++);
+
           if (len == lenLimit) {
             _son!.replaceOrAdd(_son![cyclicPos], ptr1);
             _son!.replaceOrAdd(_son![cyclicPos + 1], ptr0);
@@ -482,12 +486,12 @@ class BinTree extends InWindow {
           (_bufferBase![cur + len] & 0xff)) {
         _son!.replaceOrAdd(curMatch, ptr1);
         ptr1 = cyclicPos + 1;
-        curMatch = _son!.elementAtOrOr(ptr1, 0); // TODO check it
+        curMatch = _son!.elementAtOrOr(ptr1, 0)!; // TODO check it
         len1 = len;
       } else {
         _son!.replaceOrAdd(curMatch, ptr0);
         ptr0 = cyclicPos;
-        curMatch = _son!.elementAtOrOr(ptr0, 0);  // TODO check it
+        curMatch = _son!.elementAtOrOr(ptr0, 0)!; // TODO check it
         len0 = len;
       }
     }
@@ -611,10 +615,8 @@ class BinTree extends InWindow {
 
   static final List<int?> _crcTable = _buildCrcTable();
 
-  static List<int?> _buildCrcTable() {
-    var crcTable = List<int?>.filled(256, null);
-
-    for (var i = 0; i < 256; ++i) {
+  static List<int> _buildCrcTable() {
+    return List.generate(256, (i) {
       var r = i;
       for (var j = 0; j < 8; ++j) {
         if ((r & 1) != 0) {
@@ -623,9 +625,7 @@ class BinTree extends InWindow {
           r >>= 1;
         }
       }
-      crcTable[i] = r;
-    }
-
-    return crcTable;
+      return r;
+    });
   }
 }

@@ -31,7 +31,7 @@ part of lzma;
 bool decompress(InStream inStream, OutStream outStream) {
   const propertiesSize = 5;
 
-  var properties = <int>[];// List<int>.filled(propertiesSize, null);
+  var properties = <int>[];
   if (inStream.readBlock(properties, 0, propertiesSize) != propertiesSize) {
     throw Exception("Input .lzma file is too short");
   }
@@ -42,7 +42,7 @@ bool decompress(InStream inStream, OutStream outStream) {
   }
 
   var outSize = 0;
-  for (var i = 0; i < 8; ++ i){
+  for (var i = 0; i < 8; ++i) {
     var value = inStream.read();
     if (value < 0) {
       throw Exception("Can't read stream size");
@@ -59,23 +59,25 @@ bool decompress(InStream inStream, OutStream outStream) {
 
 class LenDecoder {
   final List<int> _choice = [];
-  final List<BitTreeDecoder?> _lowCoder = List<BitTreeDecoder?>.filled(Base.kNumPosStatesMax,null);
-  final List<BitTreeDecoder?> _midCoder = List<BitTreeDecoder?>.filled(Base.kNumPosStatesMax,null);
+  final List<BitTreeDecoder> _lowCoder = [];
+  final List<BitTreeDecoder?> _midCoder = [];
   final BitTreeDecoder _highCoder = BitTreeDecoder(Base.kNumHighLenBits);
   int _numPosStates = 0;
 
   void create(int numPosStates) {
-    for (; _numPosStates < numPosStates; ++ _numPosStates) {
-      _lowCoder[_numPosStates] = BitTreeDecoder(Base.kNumLowLenBits);
-      _midCoder[_numPosStates] = BitTreeDecoder(Base.kNumMidLenBits);
+    for (; _numPosStates < numPosStates; ++_numPosStates) {
+      _lowCoder.replaceOrAdd(
+          BitTreeDecoder(Base.kNumLowLenBits), _numPosStates);
+      _midCoder.replaceOrAdd(
+          BitTreeDecoder(Base.kNumMidLenBits), _numPosStates);
     }
   }
 
   void init() {
-    RangeDecoder.initBitModels(_choice,2);
+    RangeDecoder.initBitModels(_choice, 2);
 
-    for (var i = 0; i < _numPosStates; ++ i) {
-      _lowCoder[i]!.init();
+    for (var i = 0; i < _numPosStates; ++i) {
+      _lowCoder[i].init();
       _midCoder[i]!.init();
     }
 
@@ -84,22 +86,24 @@ class LenDecoder {
 
   int decode(RangeDecoder rangeDecoder, int posState) {
     if (rangeDecoder.decodeBit(_choice, 0) == 0) {
-      return _lowCoder[posState]!.decode(rangeDecoder);
+      return _lowCoder[posState].decode(rangeDecoder);
     }
 
     if (rangeDecoder.decodeBit(_choice, 1) == 0) {
       return Base.kNumLowLenSymbols + _midCoder[posState]!.decode(rangeDecoder);
     }
 
-    return Base.kNumLowLenSymbols + Base.kNumMidLenSymbols + _highCoder.decode(rangeDecoder);
+    return Base.kNumLowLenSymbols +
+        Base.kNumMidLenSymbols +
+        _highCoder.decode(rangeDecoder);
   }
 }
 
 class Decoder2 {
-  final List<int> _decoders = [];// List<int?>.filled(0x300,null);
+  final List<int> _decoders = [];
 
   void init() {
-    RangeDecoder.initBitModels(_decoders,0x300);
+    RangeDecoder.initBitModels(_decoders, 0x300);
   }
 
   int decodeNormal(RangeDecoder rangeDecoder) {
@@ -119,7 +123,8 @@ class Decoder2 {
       int matchBit = (matchByte >> 7) & 1;
       matchByte <<= 1;
 
-      var bit = rangeDecoder.decodeBit(_decoders, ((1 + matchBit) << 8) + symbol);
+      var bit =
+          rangeDecoder.decodeBit(_decoders, ((1 + matchBit) << 8) + symbol);
       symbol = (symbol << 1) | bit;
 
       if (matchBit != bit) {
@@ -128,7 +133,6 @@ class Decoder2 {
         }
         break;
       }
-
     } while (symbol < 0x100);
 
     return symbol & 0xff;
@@ -136,13 +140,15 @@ class Decoder2 {
 }
 
 class LiteralDecoder {
-  List<Decoder2?>? _coders;
+  List<Decoder2>? _coders;
   int? _numPrevBits;
   int? _numPosBits;
   late int _posMask;
 
   void create(int numPosBits, int numPrevBits) {
-    if ((_coders != null) && (_numPrevBits == numPrevBits) && (_numPosBits == numPosBits)) {
+    if ((_coders != null) &&
+        (_numPrevBits == numPrevBits) &&
+        (_numPosBits == numPosBits)) {
       return;
     }
     _numPosBits = numPosBits;
@@ -150,38 +156,34 @@ class LiteralDecoder {
     _numPrevBits = numPrevBits;
 
     var numStates = 1 << (_numPrevBits! + _numPosBits!);
-    _coders = List<Decoder2?>.filled(numStates,null);
-
-    for (var i = 0; i < numStates; ++ i) {
-      _coders![i] = Decoder2();
-    }
+    _coders = List.generate(numStates, (index) => Decoder2());
   }
 
   void init() {
     var numStates = 1 << (_numPrevBits! + _numPosBits!);
-    for (var i = 0; i < numStates; ++ i) {
-      _coders![i]!.init();
+    for (var i = 0; i < numStates; ++i) {
+      _coders![i].init();
     }
   }
 
   Decoder2? getDecoder(int pos, int prevByte) =>
-    _coders![((pos & _posMask) << _numPrevBits!) + ((prevByte & 0xff) >> (8 - _numPrevBits!))];
+      _coders![((pos & _posMask) << _numPrevBits!) +
+          ((prevByte & 0xff) >> (8 - _numPrevBits!))];
 }
 
 class Decoder {
   final OutWindow _outWindow = OutWindow();
   final RangeDecoder _rangeDecoder = RangeDecoder();
 
-  final List<int> _isMatchDecoders = [];// List<int?>.filled(Base.kNumStates << Base.kNumPosStatesBitsMax ,null);
-  final List<int> _isRepDecoders = [];// List<int?>.filled(Base.kNumStates,null);
-  final List<int> _isRepG0Decoders = [];// List<int?>.filled(Base.kNumStates,null);
-  final List<int> _isRepG1Decoders =[];// List<int?>.filled(Base.kNumStates,null);
-  final List<int> _isRepG2Decoders =[];// List<int?>.filled(Base.kNumStates,null);
-  final List<int> _isRep0LongDecoders =[];// List<int?>.filled(Base.kNumStates << Base.kNumPosStatesBitsMax,null);
+  final List<int> _isMatchDecoders = [];
+  final List<int> _isRepDecoders = [];
+  final List<int> _isRepG0Decoders = [];
+  final List<int> _isRepG1Decoders = [];
+  final List<int> _isRepG2Decoders = [];
+  final List<int> _isRep0LongDecoders = [];
 
-  final List<BitTreeDecoder?> _posSlotDecoder = List<BitTreeDecoder?>.filled(Base.kNumLenToPosStates,null);
-  final List<int> _posDecoders = [];// List<int?>.filled(Base.kNumFullDistances - Base.kEndPosModelIndex,null);
-
+  final List<BitTreeDecoder> _posSlotDecoder;
+  final List<int> _posDecoders = [];
   final BitTreeDecoder _posAlignDecoder = BitTreeDecoder(Base.kNumAlignBits);
 
   final LenDecoder _lenDecoder = LenDecoder();
@@ -194,11 +196,9 @@ class Decoder {
 
   late int _posStateMask;
 
-  Decoder() {
-    for (var i = 0; i < Base.kNumLenToPosStates; ++ i) {
-      _posSlotDecoder[i] = BitTreeDecoder(Base.kNumPosSlotBits);
-    }
-  }
+  Decoder()
+      : _posSlotDecoder = List.generate(Base.kNumLenToPosStates,
+            (index) => BitTreeDecoder(Base.kNumPosSlotBits));
 
   bool _setDictionarySize(int dictionarySize) {
     if (dictionarySize < 0) {
@@ -215,7 +215,9 @@ class Decoder {
   }
 
   bool _setLcLpPb(int lc, int lp, int pb) {
-    if ((lc > Base.kNumLitContextBitsMax) || (lp > 4) || (pb > Base.kNumPosStatesBitsMax)) {
+    if ((lc > Base.kNumLitContextBitsMax) ||
+        (lp > 4) ||
+        (pb > Base.kNumPosStatesBitsMax)) {
       return false;
     }
 
@@ -232,18 +234,21 @@ class Decoder {
   void init() {
     _outWindow.init(false);
 
-    RangeDecoder.initBitModels(_isMatchDecoders,Base.kNumStates << Base.kNumPosStatesBitsMax);
-    RangeDecoder.initBitModels(_isRepDecoders,Base.kNumStates);
-    RangeDecoder.initBitModels(_isRepG0Decoders,Base.kNumStates);
-    RangeDecoder.initBitModels(_isRepG1Decoders,Base.kNumStates);
-    RangeDecoder.initBitModels(_isRepG2Decoders,Base.kNumStates);
-    RangeDecoder.initBitModels(_isRep0LongDecoders,Base.kNumStates << Base.kNumPosStatesBitsMax);
-    RangeDecoder.initBitModels(_posDecoders,Base.kNumFullDistances - Base.kEndPosModelIndex);
+    RangeDecoder.initBitModels(
+        _isMatchDecoders, Base.kNumStates << Base.kNumPosStatesBitsMax);
+    RangeDecoder.initBitModels(_isRepDecoders, Base.kNumStates);
+    RangeDecoder.initBitModels(_isRepG0Decoders, Base.kNumStates);
+    RangeDecoder.initBitModels(_isRepG1Decoders, Base.kNumStates);
+    RangeDecoder.initBitModels(_isRepG2Decoders, Base.kNumStates);
+    RangeDecoder.initBitModels(
+        _isRep0LongDecoders, Base.kNumStates << Base.kNumPosStatesBitsMax);
+    RangeDecoder.initBitModels(
+        _posDecoders, Base.kNumFullDistances - Base.kEndPosModelIndex);
 
     _literalDecoder.init();
 
-    for (var i = 0; i < Base.kNumLenToPosStates; ++ i) {
-      _posSlotDecoder[i]!.init();
+    for (var i = 0; i < Base.kNumLenToPosStates; ++i) {
+      _posSlotDecoder[i].init();
     }
 
     _lenDecoder.init();
@@ -267,11 +272,14 @@ class Decoder {
     while ((outSize < 0) || (nowPos64 < outSize)) {
       var posState = nowPos64 & _posStateMask;
 
-      if (_rangeDecoder.decodeBit(_isMatchDecoders, (state << Base.kNumPosStatesBitsMax) + posState) == 0) {
+      if (_rangeDecoder.decodeBit(_isMatchDecoders,
+              (state << Base.kNumPosStatesBitsMax) + posState) ==
+          0) {
         var decoder2 = _literalDecoder.getDecoder(nowPos64, prevByte!);
 
         if (!Base.stateIsCharState(state)) {
-          prevByte = decoder2!.decodeWithMatchByte(_rangeDecoder, _outWindow.getByte(rep0)!);
+          prevByte = decoder2!
+              .decodeWithMatchByte(_rangeDecoder, _outWindow.getByte(rep0)!);
         } else {
           prevByte = decoder2!.decodeNormal(_rangeDecoder);
         }
@@ -279,13 +287,15 @@ class Decoder {
 
         state = Base.stateUpdateChar(state);
 
-        ++ nowPos64;
+        ++nowPos64;
       } else {
         int len;
         if (_rangeDecoder.decodeBit(_isRepDecoders, state) == 1) {
           len = 0;
           if (_rangeDecoder.decodeBit(_isRepG0Decoders, state) == 0) {
-            if (_rangeDecoder.decodeBit(_isRep0LongDecoders, (state << Base.kNumPosStatesBitsMax) + posState) == 0) {
+            if (_rangeDecoder.decodeBit(_isRep0LongDecoders,
+                    (state << Base.kNumPosStatesBitsMax) + posState) ==
+                0) {
               state = Base.stateUpdateShortRep(state);
               len = 1;
             }
@@ -306,7 +316,8 @@ class Decoder {
             rep0 = distance;
           }
           if (len == 0) {
-            len = _repLenDecoder.decode(_rangeDecoder, posState) + Base.kMatchMinLen;
+            len = _repLenDecoder.decode(_rangeDecoder, posState) +
+                Base.kMatchMinLen;
             state = Base.stateUpdateRep(state);
           }
         } else {
@@ -317,9 +328,8 @@ class Decoder {
           len = Base.kMatchMinLen + _lenDecoder.decode(_rangeDecoder, posState);
           state = Base.stateUpdateMatch(state);
 
-          var posSlot = _posSlotDecoder[Base.getLenToPosState(len)]!.decode(_rangeDecoder);
+          var posSlot = _posSlotDecoder[Base.getLenToPosState(len)].decode(_rangeDecoder);
           if (posSlot >= Base.kStartPosModelIndex) {
-
             var numDirectBits = (posSlot >> 1) - 1;
             rep0 = (2 | (posSlot & 1)) << numDirectBits;
 
@@ -327,7 +337,9 @@ class Decoder {
               rep0 += BitTreeDecoder.reverseDecode2(_posDecoders,
                   rep0 - posSlot - 1, _rangeDecoder, numDirectBits);
             } else {
-              rep0 += _rangeDecoder.decodeDirectBits(numDirectBits - Base.kNumAlignBits) << Base.kNumAlignBits;
+              rep0 += _rangeDecoder
+                      .decodeDirectBits(numDirectBits - Base.kNumAlignBits) <<
+                  Base.kNumAlignBits;
               rep0 += _posAlignDecoder.reverseDecode(_rangeDecoder);
               if (rep0 < 0) {
                 if (rep0 == -1) {
@@ -374,7 +386,7 @@ class Decoder {
     }
 
     var dictionarySize = 0;
-    for (var i = 0; i < 4; ++ i) {
+    for (var i = 0; i < 4; ++i) {
       dictionarySize += properties[i + 1]! * (math.pow(2, 8 * i) as int);
     }
 

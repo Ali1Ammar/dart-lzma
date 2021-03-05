@@ -14,7 +14,7 @@ extension ListputIf<E> on List<E> {
     }
   }
 
-  E elementAtOrOr(int index,[ or] ){
+  E? elementAtOrOr(int index,[E? or] ){
       if(index>=this.length) return or;
       return this[index];
   }
